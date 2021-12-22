@@ -9,18 +9,6 @@ export interface ITemplateItem {
     category:string
 }
 
-export interface ExportWrodTemplateRequestPayload{
-  EntityTypeCode:number,
-  SelectedRecords:string,
-  SelectedTemplate:[]
-}
-
-export interface IFile{
-  fileContent:string,
-  fileName:string,
-  mimeType:string
-}
-
 
 
 export const Columns:IColumn[]=[
