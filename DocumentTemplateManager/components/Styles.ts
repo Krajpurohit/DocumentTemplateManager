@@ -4,8 +4,8 @@ export const classNames = mergeStyleSets({
     fullWidthControl: {
         width: '100%'
     },
-    defaultButton:{
-        width:'100%'
+    defaultButton: {
+        width: '100%'
     },
     fileIcon: {
         fontSize: 20
@@ -25,16 +25,25 @@ export const classNames = mergeStyleSets({
         display: 'inline-block'
     },
     commandbar: {
-        padding:0,
+        padding: 0,
         root: {
             marginLeft: 0,
             marginTop: 0,
-            padding:0
+            padding: 0
         }
     },
-    searchBox:{
-        root:{
-            width:'100%'
+    searchBox: {
+        root: {
+            width: '100%'
         }
-    }
+    },
+    stackItemStyles: {
+        root: {
+            alignItems: 'center',
+            display: 'flex',
+            height: 50,
+            justifyContent: 'center',
+        },
+    },
+
 });

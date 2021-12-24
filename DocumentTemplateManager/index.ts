@@ -8,7 +8,6 @@ export class DocumentTemplateManager implements ComponentFramework.StandardContr
 
 	private container: HTMLDivElement;
 	private context: ComponentFramework.Context<IInputs>;
-	private notifyOutputChanged: () => void;
 	private primaryEntityId: string;
 	private primaryEntityName: string;
 	/**
@@ -31,7 +30,6 @@ export class DocumentTemplateManager implements ComponentFramework.StandardContr
 		// Add control initialization code
 		this.context = context;
 		this.container = container;
-		this.notifyOutputChanged = notifyOutputChanged;
 		this.primaryEntityId = context.mode.contextInfo.entityId;
 		this.primaryEntityName = context.mode.contextInfo.entityTypeName;
 	}
@@ -53,6 +51,7 @@ export class DocumentTemplateManager implements ComponentFramework.StandardContr
 			props.pcfContext = that.context;
 			props.primaryEntityTypeCode=objectTypeCode;
 			props.primaryEntitySetName=entityMetadata._entitySetName;
+			props.hasActivities=entityMetadata._hasActivities;
 			//@ts-ignore
 			props.isSharePointEnabled= entityMetadata.IsDocumentManagementEnabled && that.context.utils.isFeatureEnabled('SharePointS2S');
 			ReactDOM.render(

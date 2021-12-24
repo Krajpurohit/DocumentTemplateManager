@@ -25,15 +25,19 @@ import { Dialog, DialogType } from '@fluentui/react/lib/Dialog';
 import { ITemplateItem, Columns } from './Items';
 import { classNames } from './Styles';
 import { IInputs } from '../generated/ManifestTypes';
-import { CreateActivityMimeAttachmentRequest, ExportWordDocumentRequest, UploadDocumentRequest } from './webApiHelper';
+import { CreateActivityMimeAttachmentRequest, ExportPdfDocumentRequest, ExportWordDocumentRequest, RetrieveWordTemplates, UploadDocumentRequest } from './webApiHelper';
+import { Toggle } from '@fluentui/react/lib/Toggle';
+import { DocumentTypes, Entities, ResourceKeys, ToggleValue, WebApiConstants } from './Constants';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 
 export interface IDocumentTemplateManagerProps {
     primaryEntityName: string,
     primaryEntityId: string,
     pcfContext: ComponentFramework.Context<IInputs>,
     primaryEntityTypeCode: number,
-    isSharePointEnabled:boolean,
-    primaryEntitySetName:string
+    isSharePointEnabled: boolean,
+    primaryEntitySetName: string,
+    hasActivities:boolean,
 }
 
 export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTemplateManagerProps> = (props: IDocumentTemplateManagerProps) => {
@@ -53,45 +57,31 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
     const [templates, SetTemplates] = useState<ITemplateItem[]>([]);
     const [allTemplates, SetAllTemplates] = useState<ITemplateItem[]>([]);
     const [groups, SetGroups] = useState<IGroup[]>([]);
-    const [progressIndicatorDescription, SetProgressIndicatorDescription] = useState("Please wait...")
-    const FetchTemplates = (): void => {
+    const [progressIndicatorDescription, SetProgressIndicatorDescription] = useState(props.pcfContext.resources.getString(ResourceKeys.PROGRESSINDICATOR_TEXT_GENERIC))
+    const [convertToPdf, SetConvirtToPdf] = useState(false);
+    const [displayMessageBar, SetDisplayMessageBar] = useState(false);
+    const [isError, SetIsError] = useState(false);
+    const [messageBarMessage, SetMessageBarMessage] = useState("");
+    const FetchTemplates = async () => {
+        SetDisplayMessageBar(false);
         let documentTemplates: ITemplateItem[] = [];
+        let Systemtemplates: ITemplateItem[] = [];
+        let Usertemplates: ITemplateItem[] = [];
         SetHiddenDialog(false);
         SetIsInProgress(true);
-        SetProgressIndicatorDescription("Fetching document templates from dataverse...");
-        props.pcfContext.webAPI.retrieveMultipleRecords('documenttemplate', `?$select=clientdata,description,documenttemplateid,documenttype,name&$filter=associatedentitytypecode eq '${props.primaryEntityName}' and documenttype eq 2`).then(
-            (response: ComponentFramework.WebApi.RetrieveMultipleResponse) => {
-                for (let i = 0; i < response.entities.length; i++) {
-                    let template: ITemplateItem = {
-                        templateName: response.entities[i].name,
-                        documentTemplateId: response.entities[i].documenttemplateid,
-                        key: i,
-                        description: response.entities[i].description,
-                        fileTypeExtension: "docx",
-                        category: "System Templates"
-                    }
-                    documentTemplates.push(template);
-                }
-                props.pcfContext.webAPI.retrieveMultipleRecords('personaldocumenttemplate', `?$select=clientdata,description,personaldocumenttemplateid,documenttype,name&$filter=associatedentitytypecode eq '${props.primaryEntityName}' and documenttype eq 2`).then(
-                    (response: ComponentFramework.WebApi.RetrieveMultipleResponse) => {
-                        for (let i = 0; i < response.entities.length; i++) {
-                            let template: ITemplateItem = {
-                                templateName: response.entities[i].name,
-                                documentTemplateId: response.entities[i].personaldocumenttemplateid,
-                                key: i,
-                                description: response.entities[i].description,
-                                fileTypeExtension: "docx",
-                                category: "User Templates"
-                            }
-                            documentTemplates.push(template);
-                        }
-                        SetIsInProgress(false);
-                        SetAllTemplates(documentTemplates);
-                        SetTemplates(documentTemplates);
-                        groupTemplates(documentTemplates);
-                    });
-            });
-
+        SetProgressIndicatorDescription(props.pcfContext.resources.getString(ResourceKeys.PROGRESSINDICATOR_TEXT_GENERIC));
+        Systemtemplates = await RetrieveWordTemplates(props.pcfContext, Entities.DocumentTemplates, props.primaryEntityName, convertToPdf);
+        Usertemplates = await RetrieveWordTemplates(props.pcfContext, Entities.PersonalDocumentTemplates, props.primaryEntityName, convertToPdf);
+        documentTemplates = [...Systemtemplates, ...Usertemplates];
+        SetIsInProgress(false);
+        if (documentTemplates.length === 0) {
+            SetIsError(true);
+            SetMessageBarMessage(props.pcfContext.resources.getString(ResourceKeys.MESSAGEBAR_ERROR_NOTEMPLATES));
+            SetDisplayMessageBar(true);
+        }
+        SetAllTemplates(documentTemplates);
+        SetTemplates(documentTemplates);
+        groupTemplates(documentTemplates);
     }
     const groupTemplates = (templates: ITemplateItem[]) => {
         let groups: IGroup[] = [];
@@ -119,61 +109,62 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
         SetGroups(groups);
     }
     const getItems = (): ICommandBarItemProps[] => {
-        let ribbonItems:ICommandBarItemProps[]=[];
-        if(props.pcfContext.utils.hasEntityPrivilege("documenttemplate",2,1) && props.pcfContext.parameters.allowDownload.raw==="0"){
+        let ribbonItems: ICommandBarItemProps[] = [];
+        if (props.pcfContext.utils.hasEntityPrivilege(Entities.DocumentTemplates, 2, 1) && props.pcfContext.parameters.allowDownload.raw === ToggleValue.YES) {
             ribbonItems.push({
                 key: 'download',
-                text: 'Download',
+                text: props.pcfContext.resources.getString(ResourceKeys.DOWNLOAD_BUTTON_LABEL),
                 iconProps: { iconName: 'Download' },
                 onClick: () => {
-                    SetProgressIndicatorDescription("Downloading selected document templates...")
+                    SetProgressIndicatorDescription(props.pcfContext.resources.getString(ResourceKeys.DOWNLOAD_DESCRIPTION))
                     TemplateAction('download')
                 }
-                
+
             })
         }
-        if(props.pcfContext.utils.hasEntityPrivilege("email",1,1)&& props.pcfContext.parameters.allowEmail.raw==="0"){
+        if (props.hasActivities && props.pcfContext.utils.hasEntityPrivilege(Entities.Email, 1, 1) && props.pcfContext.parameters.allowEmail.raw === ToggleValue.YES) {
             ribbonItems.push(
                 {
                     key: 'email',
-                    text: 'Email',
+                    text: props.pcfContext.resources.getString(ResourceKeys.EMAIL_BUTTON_LABEL),
                     iconProps: { iconName: 'Mail' },
                     onClick: () => {
-                        SetProgressIndicatorDescription("Creating email and attaching selected document templates...")
+                        SetProgressIndicatorDescription(props.pcfContext.resources.getString(ResourceKeys.EMAIL_DESCRIPTION))
                         TemplateAction('email')
                     }
                 }
             )
         }
-        if(props.pcfContext.parameters.allowSaveToSharePoint.raw==="0" && props.isSharePointEnabled){
+        if (props.pcfContext.parameters.allowSaveToSharePoint.raw === ToggleValue.YES && props.isSharePointEnabled) {
             ribbonItems.push(
-            {
-                key: 'saveToSharepoint',
-                text: 'Save To SharePoint',
-                iconProps: { iconName: 'SharepointLogo' },
-                onClick: () => {
-                    SetProgressIndicatorDescription("Saving selected document templates into SharePoint...")
-                    TemplateAction('saveToSharePoint')
-                }
-            });
+                {
+                    key: 'saveToSharepoint',
+                    text: props.pcfContext.resources.getString(ResourceKeys.SAVETOSHAREPOINT_BUTTON_LABEL),
+                    iconProps: { iconName: 'SharepointLogo' },
+                    onClick: () => {
+                        SetProgressIndicatorDescription(props.pcfContext.resources.getString(ResourceKeys.SAVETOSHAREPOINT_DESCRIPTION))
+                        TemplateAction('saveToSharePoint')
+                    }
+                });
         }
         return ribbonItems;
     };
     const TemplateAction = (actionaName: string) => {
         if (selectedItems && selectedItems.length > 0) {
+            SetDisplayMessageBar(false);
             SetIsInProgress(true);
             let requests: any = [];
             for (let selectedTemplate of selectedItems) {
                 let templateData: any = {};
                 if (selectedTemplate.category === "System Templates") {
-                    templateData["@odata.type"] = "Microsoft.Dynamics.CRM.documenttemplate";
-                    templateData["documenttemplateid"] = selectedTemplate.documentTemplateId
+                    templateData[WebApiConstants.OdataType] = WebApiConstants.OdataTypes.documentTemplates;
+                    templateData[WebApiConstants.PrimaryAttributeId.documentTemplates] = selectedTemplate.documentTemplateId
                 }
                 else {
-                    templateData["@odata.type"] = "Microsoft.Dynamics.CRM.personaldocumenttemplate";
-                    templateData["personaldocumenttemplateid"] = selectedTemplate.documentTemplateId
+                    templateData[WebApiConstants.OdataType] = WebApiConstants.OdataTypes.PersonalDocumentTemplates;
+                    templateData[WebApiConstants.PrimaryAttributeId.PersonalDocumentTemplates] = selectedTemplate.documentTemplateId
                 }
-                let request = new ExportWordDocumentRequest(props.primaryEntityTypeCode, `[\"{${props.primaryEntityId}}"\]`, templateData);
+                let request = convertToPdf ? new ExportPdfDocumentRequest(props.primaryEntityTypeCode, `[\"{${props.primaryEntityId}}"\]`, templateData) : new ExportWordDocumentRequest(props.primaryEntityTypeCode, `[\"{${props.primaryEntityId}}"\]`, templateData);
                 requests.push(request);
             }
             //@ts-ignore
@@ -197,6 +188,10 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
         }
         else {
             SetIsInProgress(false);
+            SetIsError(true);
+            SetMessageBarMessage(props.pcfContext.resources.getString(ResourceKeys.MESSAGEBAR_ERROR_NORECORDSSELCTED));
+            SetDisplayMessageBar(true);
+
         }
     }
 
@@ -204,18 +199,21 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
         for (let i = 0; i < responses.length; i++) {
             let file: ComponentFramework.FileObject = {} as ComponentFramework.FileObject;
             let fileOption: ComponentFramework.NavigationApi.OpenFileOptions = {} as ComponentFramework.NavigationApi.OpenFileOptions;
-            responses[i].json().then((response: { WordFile: any; }) => {
-                file.fileContent = response.WordFile;
-                file.fileName = GenerateFileName(selectedItems ? selectedItems[i].templateName : "");
-                file.mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            responses[i].json().then((response: any) => {
+                file.fileContent = convertToPdf ? response.PdfFile : response.WordFile;
+                file.fileName = GenerateFileName(selectedItems ? selectedItems[i].templateName : "", selectedItems ? selectedItems[i].fileTypeExtension : "");
+                file.mimeType = convertToPdf ? DocumentTypes.Pdf.MimeType : DocumentTypes.Word.MimeType;
                 fileOption.openMode = 2;
                 props.pcfContext.navigation.openFile(file, fileOption);
                 SetIsInProgress(false);
+                SetIsError(false);
+                SetMessageBarMessage(props.pcfContext.resources.getString(ResourceKeys.MESSAGEBAR_SUCCESS_DOWNLOAD));
+                SetDisplayMessageBar(true);
             });
         }
     }
 
-    const GenerateFileName = (templateNam: string): string => {
+    const GenerateFileName = (templateNam: string, ext: string): string => {
         var now: any = new Date
             , datePattern = props.pcfContext.userSettings.dateFormattingInfo.shortDatePattern
             , timePattern = props.pcfContext.userSettings.dateFormattingInfo.longDatePattern
@@ -223,27 +221,30 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
             , timeSeparator = props.pcfContext.userSettings.dateFormattingInfo.timeSeparator
             , fileName = templateNam + " " + now.format(datePattern) + " " + now.format(timePattern);
         fileName = fileName.split(dateSeparator).join("-").split(timeSeparator).join("-");
-        return "" + fileName + ".docx";
+        return "" + fileName + "." + ext;
     }
     const EmailTemplates = async (responses: [any]) => {
         let emailId = await CreateEmail();
         let requests: any = [];
         for (let i = 0; i < responses.length; i++) {
-            responses[i].json().then((response: { WordFile: any; }) => {
+            responses[i].json().then((response: any) => {
                 let attachMentPayload: any = {};
-                attachMentPayload["body"] = response.WordFile;
+                attachMentPayload["body"] = convertToPdf ? response.PdfFile : response.WordFile;
                 attachMentPayload["objectid_activitypointer@odata.bind"] = `activitypointers(${emailId})`;
-                attachMentPayload["objecttypecode"] = "email";
+                attachMentPayload["objecttypecode"] = Entities.Email;
                 attachMentPayload["filename"] = `${selectedItems ? selectedItems[i].templateName : ""}.${selectedItems ? selectedItems[i].fileTypeExtension : ""}`;
-                let request = new CreateActivityMimeAttachmentRequest("activitymimeattachment", attachMentPayload);
+                let request = new CreateActivityMimeAttachmentRequest(Entities.Attachment, attachMentPayload);
                 requests.push(request);
                 if (i + 1 === responses.length) {
                     //@ts-ignore
                     props.pcfContext.webAPI.executeMultiple(requests).then((data) => {
                         SetIsInProgress(false);
+                        SetIsError(false);
+                        SetMessageBarMessage(props.pcfContext.resources.getString(ResourceKeys.MESSAGEBAR_SUCCESS_EMAIL));
+                        SetDisplayMessageBar(true);
                         let options: ComponentFramework.NavigationApi.EntityFormOptions = {} as ComponentFramework.NavigationApi.EntityFormOptions;
                         options.entityId = emailId;
-                        options.entityName = "email";
+                        options.entityName = Entities.Email;
                         options.openInNewWindow = true;
                         props.pcfContext.navigation.openForm(options);
 
@@ -255,42 +256,74 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
     }
     const CreateEmail = async () => {
         let email: any = {};
+        let customer: any = await FetchCustomer();
+        email.email_activity_parties = [];
         email[`regardingobjectid_${props.primaryEntityName}@odata.bind`] = `/${props.primaryEntitySetName}(${props.primaryEntityId})`;
-        email["subject"] = "Test Subject";
+        email["subject"] = props.pcfContext.mode.contextInfo.entityRecordName;
         email["email_activity_parties"] = [{
             "partyid_systemuser@odata.bind": `/systemusers(${props.pcfContext.userSettings.userId.replace('{', "").replace('}', "")})`,
             "participationtypemask": 1   ///From Email
-        }]
-        let id = await props.pcfContext.webAPI.createRecord("email", email).then((records: ComponentFramework.LookupValue) => {
+        }];
+        let to: any = {};
+        if (customer !== null) {
+            let customerSetName = await FetchMetadata(customer.enityCustomerIdType);
+            to[`partyid_${customer.enityCustomerIdType}@odata.bind`] = `/${customerSetName._entitySetName}(${customer.entityCustomerId})`;
+            to["participationtypemask"] = 2;
+            email["email_activity_parties"].push(to);
+        }
+        let id = await props.pcfContext.webAPI.createRecord(Entities.Email, email).then((records: ComponentFramework.LookupValue) => {
             return records.id;
         });
         return id;
 
     }
+
+    const FetchMetadata = async (logicalName: string) => {
+        let metadata = await props.pcfContext.utils.getEntityMetadata(logicalName, []).then((metadata: ComponentFramework.PropertyHelper.EntityMetadata) => { return metadata });
+        return metadata;
+    }
+
+    const FetchCustomer = async () => {
+        let customer = await props.pcfContext.webAPI.retrieveRecord(props.primaryEntityName, props.primaryEntityId, "?$select=_customerid_value").then((entity: ComponentFramework.WebApi.Entity) => {
+            let record: any = {};
+            //@ts-ignore
+            if (!props.pcfContext.utils.isNullOrUndefined(record)) {
+                record.entityCustomerId = entity["_customerid_value"];
+                record.enityCustomerIdType = entity["_customerid_value@Microsoft.Dynamics.CRM.lookuplogicalname"];
+            }
+            else {
+                record = null;
+            }
+            return record;
+        },(reason)=>{
+            return null;
+        });
+        return customer;
+    }
     const SaveToSharePoint = (responses: [any]) => {
         let requests: any = [];
         for (let i = 0; i < responses.length; i++) {
-            responses[i].json().then((response: { WordFile: any; }) => {
+            responses[i].json().then((response: any) => {
                 let entity: any = {};
-                entity["@odata.type"] = "Microsoft.Dynamics.CRM.sharepointdocument";
+                entity[WebApiConstants.OdataType] = WebApiConstants.OdataTypes.sharePointDocument;
                 entity["locationid"] = "";
                 entity["title"] = `${selectedItems ? selectedItems[i].templateName : ""}.${selectedItems ? selectedItems[i].fileTypeExtension : ""}`
                 let parentEntityRef: any = {};
-                parentEntityRef["@odata.type"] = `Microsoft.Dynamics.CRM.${props.primaryEntityName}`;
+                parentEntityRef[WebApiConstants.OdataType] = `Microsoft.Dynamics.CRM.${props.primaryEntityName}`;
                 parentEntityRef[`${props.primaryEntityName}id`] = props.primaryEntityId;
-                let request = new UploadDocumentRequest(response.WordFile, entity, true, parentEntityRef, "");
+                let request = new UploadDocumentRequest(convertToPdf ? response.PdfFile : response.WordFile, entity, true, parentEntityRef, "");
                 requests.push(request);
                 if (i + 1 === responses.length) {
                     //@ts-ignore
                     props.pcfContext.webAPI.executeMultiple(requests);
                     SetIsInProgress(false);
+                    SetIsError(false);
+                    SetMessageBarMessage(props.pcfContext.resources.getString(ResourceKeys.MESSAGEBAR_SUCCESS_SHAREPOINT));
+                    SetDisplayMessageBar(true);
                 }
             });
         }
 
-    }
-    const onItemInvoked = (template: ITemplateItem): void => {
-        console.log('Item invoked: ' + template.templateName);
     }
     const onRenderDetailsHeader = (
         props?: IDetailsHeaderProps,
@@ -331,36 +364,52 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
     const hasText = (item: ITemplateItem, text: string): boolean => {
         return `${item.templateName.toLowerCase()}|${item.description === null ? item.description : item.description.toLowerCase()}`.indexOf(text.toLowerCase()) > -1;
     }
+    const OnChangeCovertToPDF = (ev: React.MouseEvent<HTMLElement, MouseEvent>, checked?: boolean) => {
+        if (checked) {
+            SetTemplates(allTemplates.map(template => { template.fileTypeExtension = DocumentTypes.Pdf.Extension; return template }));
+            SetConvirtToPdf(true);
+        }
+        else {
+            SetTemplates(allTemplates.map(template => { template.fileTypeExtension = DocumentTypes.Word.Extension; return template }));
+            SetConvirtToPdf(false);
+        }
+    }
     return (
         <div>
             <DefaultButton
                 className={classNames.defaultButton}
-                name='Download Document Templates'
-                iconProps={{ ...getFileTypeIconProps({ extension: 'docx' }) }}
-                ariaLabel='Download Document Templates'
+                name={props.pcfContext.resources.getString(ResourceKeys.DOWNLOAD_DEFAULTBUTTON_LABEL)}
+                iconProps={{ ...getFileTypeIconProps({ extension: DocumentTypes.Word.Extension }) }}
+                ariaLabel={props.pcfContext.resources.getString(ResourceKeys.DOWNLOAD_DEFAULTBUTTON_LABEL)}
                 onClick={FetchTemplates}
-                text='Export to Word'
-                disabled={props.pcfContext.mode.isControlDisabled && props.pcfContext.parameters.enableForInactiveRecords.raw==="1"} />
+                text={props.pcfContext.resources.getString(ResourceKeys.DOWNLOAD_DEFAULTBUTTON_TEXT)}
+                disabled={props.pcfContext.mode.isControlDisabled && props.pcfContext.parameters.enableForInactiveRecords.raw === "1"} />
             <Dialog
                 hidden={hiddenDialog}
                 onDismiss={() => { SetHiddenDialog(true); }}
                 dialogContentProps={{
                     type: DialogType.close,
-                    title: 'Export Document Templates'
+                    title: props.pcfContext.resources.getString(ResourceKeys.DIALOG_TITLE)
                 }}
                 modalProps={{ isBlocking: false }}
                 minWidth='900px'>
-                <CommandBar items={getItems()} className={classNames.commandbar} />
+                <CommandBar items={getItems()} styles={{ root: { padding: 0, margin: 0 } }} />
                 <div className={classNames.wrapper}>
                     <ScrollablePane scrollbarVisibility={ScrollbarVisibility.auto}>
                         <Sticky stickyPosition={StickyPositionType.Header}>
                             <Stack horizontal tokens={{ childrenGap: 20, padding: 10 }}>
-                                <Stack.Item grow align="stretch">
-                                    <SearchBox className={classNames.searchBox} placeholder="Search Templates" onChange={onFilterChanged} />
+                                <Stack.Item grow={1} className={classNames.stackItemStyles}>
+                                    <Toggle label={props.pcfContext.resources.getString(ResourceKeys.PDF_TOGGLE_LABEL)} inlineLabel checked={convertToPdf} onChange={OnChangeCovertToPDF} />
+                                </Stack.Item>
+                                <Stack.Item grow={3} className={classNames.stackItemStyles}>
+                                    <SearchBox className={classNames.searchBox} placeholder={props.pcfContext.resources.getString(ResourceKeys.SEARCHBOX_PLACEHOLDER)} onChange={onFilterChanged} />
                                 </Stack.Item>
                             </Stack>
                             <Stack>
-                                {isInProgress && <ProgressIndicator label="In progress" description={progressIndicatorDescription} />}
+                                {isInProgress && <ProgressIndicator label={props.pcfContext.resources.getString(ResourceKeys.PROGRESSINDICATOR_LABEL)} description={progressIndicatorDescription} />}
+                            </Stack>
+                            <Stack>
+                                {displayMessageBar && <MessageBar messageBarType={isError ? MessageBarType.error : MessageBarType.success} isMultiline={false} >{messageBarMessage}</MessageBar>}
                             </Stack>
                         </Sticky>
                         <MarqueeSelection selection={selection}>
@@ -375,9 +424,6 @@ export const DocumentTemplateManagerApp: React.FunctionComponent<IDocumentTempla
                                 onRenderDetailsHeader={onRenderDetailsHeader}
                                 selection={selection}
                                 selectionPreservedOnEmptyClick={true}
-                                ariaLabelForSelectionColumn="Toggle selection"
-                                ariaLabelForSelectAllCheckbox="Toggle selection for all items"
-                                onItemInvoked={onItemInvoked}
                             />
                         </MarqueeSelection>
                     </ScrollablePane>

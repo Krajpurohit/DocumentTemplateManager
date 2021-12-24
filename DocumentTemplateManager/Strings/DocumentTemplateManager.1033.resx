@@ -181,4 +181,80 @@
     <value>Allowing this control to execute on inactive records</value>
     <comment/>
   </data>
+  <data name="DOWNLOAD_BUTTON_LABEL" xml:space="preserve">
+    <value>Download</value>
+    <comment/>
+  </data>
+  <data name="EMAIL_BUTTON_LABEL" xml:space="preserve">
+    <value>Email</value>
+    <comment/>
+  </data>
+  <data name="SAVETOSHAREPOINT_BUTTON_LABEL" xml:space="preserve">
+    <value>Save To SharePoint</value>
+    <comment/>
+  </data>
+  <data name="SAVETOSHAREPOINT_DESCRIPTION" xml:space="preserve">
+    <value>Saving selected document templates into SharePoint...</value>
+    <comment/>
+  </data>
+  <data name="EMAIL_DESCRIPTION" xml:space="preserve">
+    <value>Creating email and attaching selected document templates...</value>
+    <comment/>
+  </data>
+  <data name="DOWNLOAD_DESCRIPTION" xml:space="preserve">
+    <value>Downloading selected document templates...</value>
+    <comment/>
+  </data>
+  <data name="DOWNLOAD_DEFAULTBUTTON_LABEL" xml:space="preserve">
+    <value>Download Document Templates</value>
+    <comment/>
+  </data>
+  <data name="DOWNLOAD_DEFAULTBUTTON_TEXT" xml:space="preserve">
+    <value>Export To Word</value>
+    <comment/>
+  </data>
+  <data name="DIALOG_TITLE" xml:space="preserve">
+    <value>Export Document Templates</value>
+    <comment/>
+  </data>
+  <data name="PDF_TOGGLE_LABEL" xml:space="preserve">
+    <value>Convert To PDF</value>
+    <comment/>
+  </data>
+  <data name="SEARCHBOX_PLACEHOLDER" xml:space="preserve">
+    <value>Search Templates</value>
+    <comment/>
+  </data>
+  <data name="PROGRESSINDICATOR_LABEL" xml:space="preserve">
+    <value>In progress</value>
+    <comment/>
+  </data>
+  <data name="PROGRESSINDICATOR_TEXT_GENERIC" xml:space="preserve">
+    <value>Please wait...</value>
+    <comment/>
+  </data>
+  <data name="PROGRESSINDICATOR_TEXT_FETCHING" xml:space="preserve">
+    <value>Fetching document templates from dataverse...</value>
+    <comment/>
+  </data>
+  <data name="MESSAGEBAR_ERROR_NORECORDSSELCTED" xml:space="preserve">
+    <value>Please select atleast one template.</value>
+    <comment/>
+  </data>
+  <data name="MESSAGEBAR_SUCCESS_DOWNLOAD" xml:space="preserve">
+    <value>Selected templates has been downloaded succesfully.</value>
+    <comment/>
+  </data>
+  <data name="MESSAGEBAR_SUCCESS_SHAREPOINT" xml:space="preserve">
+    <value>Selected templates has been uploaded to SharePoint</value>
+    <comment/>
+  </data>
+  <data name="MESSAGEBAR_SUCCESS_EMAIL" xml:space="preserve">
+    <value>An Email activity has been created and selected templates has been attached.</value>
+    <comment/>
+  </data>
+  <data name="MESSAGEBAR_ERROR_NOTEMPLATES" xml:space="preserve">
+    <value>Word templates are not available for this table, please create a Personal template or ask your system administrator to create system templates.</value>
+    <comment/>
+  </data>
 </root>
