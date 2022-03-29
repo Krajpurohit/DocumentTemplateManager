@@ -11,6 +11,7 @@
     <Name>PCFTEMP</Name>
     <ProjectGuid>253c00ca-5314-483d-ae94-b9c825b45b06</ProjectGuid>
     <OutputPath>$(MSBuildThisFileDirectory)out\controls</OutputPath>
+	<PcfBuildMode>production</PcfBuildMode>
   </PropertyGroup>
 
   <PropertyGroup>
